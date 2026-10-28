@@ -1,28 +1,46 @@
 # NEO Digital Studio
-React + TypeScript + Vite, чистый CSS (без тяжёлых библиотек). Founded by Neki.
+
+Сайт цифровой студии. React + TypeScript + Vite, чистый CSS. Founded by Neki.
 
 ## Запуск
-```
+
+```bash
 npm install
-cp .env.example .env   # заполните публичные значения
-npm run dev            # разработка
-npm run build          # проверка TS + production-сборка в dist/
+cp .env.example .env
+npm run dev
+npm run build
 ```
-## Настройка
-- `.env`: `VITE_TELEGRAM_USERNAME`, `VITE_CONTACT_EMAIL`, `VITE_SITE_URL`, `VITE_FORM_ENDPOINT`. Только публичные данные — никаких токенов в `VITE_*`.
-- Без Telegram username кнопка скрыта. Без `VITE_FORM_ENDPOINT` форма честно сообщает, что отправка не подключена.
-- **Цены и проекты: `public/data.json`** — правится без изменения кода (после деплоя — просто замените файл на хостинге, пересборка не нужна). Пустая `price` = «Стоимость рассчитывается по задаче».
-  Добавить проект: в массив `projects` вставьте
-  `{"title":"Название","category":"Сайт","task":"Задача","solution":"Решение","tech":["React"],"url":"https://ссылка","image":"https://картинка"}` (`url` и `image` необязательны, только http/https; свои картинки — в `public/`, путь вида `/img/a.webp`).
-- **Редактор:** откройте `/admin.html` (при `npm run dev` — `localhost:5173/admin.html`), измените цены/проекты и нажмите «Скачать data.json», затем замените `public/data.json`. Страница ничего не отправляет и не хранит (без паролей и сервера); публикация файла — вручную.
-- Тексты услуг/FAQ: `src/content.ts`.
-- Замените `example.com` в `public/robots.txt` и `public/sitemap.xml`.
 
-## Перед деплоем
-1. Подключить backend формы (валидация, лимит запросов, антиспам, секреты на сервере).
-2. Добавить og:image, реальные кейсы, политику конфиденциальности (152-ФЗ, при необходимости).
-3. Для лучшего SEO рассмотреть prerendering; на хостинге настроить отдачу `404.html`.
-4. Прогнать Lighthouse и проверку на реальных устройствах.
+## Хостинг: что выбрать
 
-## Редактор цен и проектов
-Откройте `https://ваш-сайт/#admin` (локально `http://localhost:5173/#admin`), измените цены/проекты, нажмите «Скачать data.json» и замените им `public/data.json` (или файл на хостинге). Редактор работает в браузере, ничего не отправляет и не требует пароля, потому что не имеет доступа к серверу. Настоящая админка с логином потребует backend.
+| Вариант | Когда | База |
+|--------|--------|------|
+| **PocketBase** (Railway / VPS / Fly) | Нужны заявки, админка, файлы без боли | встроенный SQLite |
+| HandyHost / Reg.ru + PHP + MySQL | Уже есть shared-хостинг, только PHP | MySQL |
+| Статика (Cloudflare Pages, Vercel) | Только лендинг, формы через сторонний сервис | нет |
+
+**Рекомендация для NEO:** PocketBase. Один бинарник, REST + realtime, auth, файлы. Фронт — статика (`dist/`), формы бьют в `VITE_FORM_ENDPOINT` (коллекция `orders`). Секреты (VK/Telegram токены) живут только в PocketBase hooks или отдельном edge-функции, не в `VITE_*`.
+
+Railway удобен для PocketBase; Reg.ru/HandyHost — если принципиально PHP+MySQL.
+
+## Контент
+
+- `public/data.json` — тарифы и проекты (можно править без пересборки)
+- Редактор: `/admin.html` (сохранение в браузер + выгрузка JSON)
+- Тексты секций: `src/content.ts`
+
+## Редактор
+
+`/#admin` — вход по паролю из `.env` → `VITE_ADMIN_PASSWORD`.
+После входа можно сохранять тарифы/проекты в браузере или скачать `data.json`.
+
+## Env
+
+Только публичное. Токены ботов и пароли БД — никогда в `VITE_*`.
+
+## Перед продом
+
+1. `.env` с Telegram / endpoint
+2. Сменить доступ к редактору
+3. Поднять PocketBase (или PHP API) под заявки
+4. Проверка на iPhone / Android

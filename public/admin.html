@@ -1,33 +1,14 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>NEO — редактор данных</title>
-<style>body{margin:0;background:#16161e;color:#c0caf5;font:15px/1.5 system-ui,sans-serif}main{max-width:820px;margin:auto;padding:24px 16px 120px}h1,h2{font-weight:600}p{color:#7a82a8}
-.card{background:#1a1b26;border:1px solid #2a2e42;border-radius:8px;padding:16px;margin:12px 0;display:grid;gap:10px}label{display:grid;gap:4px;font-size:13px;color:#7a82a8}
-input,textarea{background:#16161e;border:1px solid #2a2e42;color:#c0caf5;border-radius:6px;padding:10px;font:inherit}textarea{min-height:80px}
-button{background:#7aa2f7;color:#16161e;border:0;border-radius:6px;padding:12px 18px;font:600 15px system-ui;cursor:pointer}button.x{background:#2a2e42;color:#c0caf5}
-.bar{position:fixed;left:0;right:0;bottom:0;background:#1a1b26;border-top:1px solid #2a2e42;padding:12px;display:flex;gap:10px;justify-content:center}</style></head><body><main>
-<h1>Редактор цен и проектов</h1>
-<p>Измените поля → «Скачать data.json» → замените файл <b>public/data.json</b> (или на хостинге). Страница ничего никуда не отправляет и не сохраняет сама — это безопасно, но и публикует вручную.</p>
-<div id="app"></div></main>
-<div class="bar"><button class="x" id="add">+ Проект</button><button id="dl">Скачать data.json</button></div>
-<script>
-let D={plans:[],projects:[]};const app=document.getElementById('app');
-const lines=v=>v.split('\n').map(s=>s.trim()).filter(Boolean);
-function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e}
-function field(par,label,get,set,multi){const l=el('label','',label),i=el(multi?'textarea':'input');i.value=get();i.oninput=()=>set(i.value);l.append(i);par.append(l)}
-function render(){app.replaceChildren(el('h2','','Тарифы'));
- D.plans.forEach(p=>{const c=el('section','card');c.append(el('h3','',p.name));
-  field(c,'Цена (пусто = «Стоимость рассчитывается по задаче»)',()=>p.price,v=>p.price=v);
-  field(c,'Срок (необязательно)',()=>p.term,v=>p.term=v);
-  field(c,'Кому подходит',()=>p.who,v=>p.who=v);
-  field(c,'Входит (каждый пункт с новой строки)',()=>p.include.join('\n'),v=>p.include=lines(v),1);
-  field(c,'Не входит (с новой строки)',()=>p.exclude.join('\n'),v=>p.exclude=lines(v),1);
-  field(c,'Нужно для расчёта',()=>p.need,v=>p.need=v);app.append(c)});
- app.append(el('h2','','Проекты'));
- D.projects.forEach((p,i)=>{const c=el('section','card');
-  [['title','Название'],['category','Категория'],['task','Задача'],['solution','Решение'],['url','Ссылка на проект (https://…)'],['image','Картинка (https://… или /img/a.webp)']].forEach(([k,l])=>field(c,l,()=>p[k]||'',v=>p[k]=v));
-  field(c,'Технологии (через запятую)',()=>p.tech.join(', '),v=>p.tech=v.split(',').map(s=>s.trim()).filter(Boolean));
-  const b=el('button','x','Удалить проект');b.onclick=()=>{D.projects.splice(i,1);render()};c.append(b);app.append(c)});}
-document.getElementById('add').onclick=()=>{D.projects.push({title:'',category:'',task:'',solution:'',tech:[],url:'',image:''});render();scrollTo(0,document.body.scrollHeight)};
-document.getElementById('dl').onclick=()=>{const o={plans:D.plans,projects:D.projects.map(p=>{const q={...p};if(!q.url)delete q.url;if(!q.image)delete q.image;return q})};
- const a=el('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,2)],{type:'application/json'}));a.download='data.json';a.click()};
-fetch('data.json',{cache:'no-cache'}).then(r=>r.json()).then(j=>{D={plans:j.plans||[],projects:j.projects||[]};render()}).catch(()=>{app.append(el('p','','Не удалось загрузить data.json — откройте страницу через npm run dev или с хостинга.'))});
-</script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>NEO</title>
+<meta http-equiv="refresh" content="0;url=/#admin">
+<script>location.replace("/#admin");</script>
+</head>
+<body>
+<p><a href="/#admin">Открыть редактор</a></p>
+</body>
+</html>

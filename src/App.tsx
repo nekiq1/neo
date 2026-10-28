@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { config } from "./config";
-import { nav, services, steps, faq, flow, problems, included, turnkey, ring, ringColors, stats } from "./content";
-import { useData, type Plan, type Project, type SiteData } from "./data";
+import { nav, services, steps, faq, problems, included, turnkey, ringColors, stats, layers, heroBadges } from "./content";
+import { useData, saveStored, clearStored, type Plan, type Project, type SiteData } from "./data";
 import { Logo, Mark } from "./Logo";
 
 function Reveal({ children }: { children: ReactNode }) {
@@ -51,26 +51,104 @@ function Intro() {
   if (ph >= 2) return null;
   return (<div className={"intro" + (ph === 1 ? " out" : "")} aria-hidden="true"><div className="iw"><Mark size={84} /><b>NEO</b><small>Digital Studio</small></div></div>);
 }
-function Ring() {
-  const [a, setA] = useState(0);
-  return (<div className="ringw"><svg viewBox="0 0 200 200" role="img" aria-label="Из чего состоит проект">
-    {ring.map(([t], i) => <circle key={t} cx="100" cy="100" r="70" fill="none" strokeWidth={a === i ? 22 : 14} stroke={ringColors[i]} strokeDasharray="82 358" transform={`rotate(${i * 72 - 90} 100 100)`} opacity={a === i ? 1 : 0.5} style={{ transition: "all .3s" }} />)}
-    <text x="100" y="106" textAnchor="middle" className="rt">{ring[a][0]}</text></svg>
-    <ul>{ring.map(([t, d], i) => <li key={t}><button className={a === i ? "on" : ""} style={a === i ? { borderColor: ringColors[i] } : undefined} onMouseEnter={() => setA(i)} onFocus={() => setA(i)} onClick={() => setA(i)}><b>{t}</b><span>{d}</span></button></li>)}</ul></div>);
-}
 function CodeWin() {
   return (<div className="code" aria-hidden="true"><div className="dots"><i /><i /><i /></div><pre><code>
 <span className="c">// neo.config.ts</span>{"\n"}<span className="k">export const</span> studio = {"{"}{"\n"}  name: <span className="s">"NEO"</span>,{"\n"}  ceo: <span className="s">"Neki"</span>,{"\n"}  builds: [<span className="s">"sites"</span>, <span className="s">"apps"</span>,{"\n"}    <span className="s">"bots"</span>, <span className="s">"ai"</span>],{"\n"}  status: <span className="s">"ready"</span><span className="cur">▍</span>{"\n"}{"}"};</code></pre></div>);
 }
 function Admin({ initial }: { initial: SiteData }) {
+  const expected = config.adminPassword;
+  const [authed, setAuthed] = useState(() => {
+    if (!expected) return false;
+    return sessionStorage.getItem("neo_ed_ok") === "1";
+  });
+  const [pw, setPw] = useState("");
+  const [err, setErr] = useState("");
+  const [fails, setFails] = useState(0);
   const [d, setD] = useState<SiteData>(initial);
-  const plan = (i: number, k: "price" | "term" | "who", v: string) => setD({ ...d, plans: d.plans.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
-  const proj = (i: number, k: keyof Project, v: string) => setD({ ...d, projects: d.projects.map((p, j) => (j === i ? ({ ...p, [k]: k === "tech" ? v.split(",").map(x => x.trim()).filter(Boolean) : v } as Project) : p)) });
-  const save = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" })); a.download = "data.json"; a.click(); };
+
+  const plan = (i: number, k: "price" | "term" | "who", v: string) =>
+    setD({ ...d, plans: d.plans.map((p, j) => (j === i ? { ...p, [k]: v } : p)) });
+  const proj = (i: number, k: keyof Project, v: string) =>
+    setD({
+      ...d,
+      projects: d.projects.map((p, j) =>
+        j === i ? ({ ...p, [k]: k === "tech" ? v.split(",").map((x) => x.trim()).filter(Boolean) : v } as Project) : p
+      ),
+    });
+  const persist = () => { saveStored(d); };
+  const download = () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }));
+    a.download = "data.json";
+    a.click();
+  };
   const f: (keyof Project)[] = ["title", "category", "task", "solution", "url", "image"];
-  return (<main className="wrap admin"><h1>Редактор данных</h1>
-    <p className="lead">Измените цены и проекты, нажмите «Скачать data.json» и замените им файл <code>public/data.json</code> (или файл на хостинге). Данные никуда не отправляются.</p>
-    <h2>Тарифы</h2>{d.plans.map((p, i) => (<div className="arow" key={p.name}><b>{p.name}</b>
+
+  const tryLogin = () => {
+    if (!expected) {
+      setErr("Пароль не задан в .env (VITE_ADMIN_PASSWORD).");
+      return;
+    }
+    if (fails >= 5) {
+      setErr("Слишком много попыток. Обновите страницу позже.");
+      return;
+    }
+    if (pw === expected) {
+      sessionStorage.setItem("neo_ed_ok", "1");
+      setAuthed(true);
+      setErr("");
+    } else {
+      setFails((n) => n + 1);
+      setErr("Неверный пароль");
+    }
+  };
+
+  if (!expected) {
+    return (
+      <main className="wrap admin">
+        <h1>Редактор закрыт</h1>
+        <p className="lead">Задайте <code>VITE_ADMIN_PASSWORD</code> в файле <code>.env</code> и перезапустите dev-сервер (или пересоберите сайт).</p>
+        <a className="btn ghost" href="#top">На сайт</a>
+      </main>
+    );
+  }
+
+  if (!authed) {
+    return (
+      <main className="wrap admin" style={{ minHeight: "70vh", display: "grid", placeContent: "center" }}>
+        <div style={{ width: "min(360px, 100%)", textAlign: "center" }}>
+          <h1>Вход</h1>
+          <p className="lead">Редактор контента NEO</p>
+          <label style={{ display: "grid", gap: 8, textAlign: "left", margin: "20px 0" }}>
+            Пароль
+            <input
+              type="password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && tryLogin()}
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              style={{ minHeight: 48 }}
+            />
+          </label>
+          {err && <p className="note" style={{ color: "#ff8a80" }}>{err}</p>}
+          <div className="cta" style={{ justifyContent: "center" }}>
+            <button type="button" className="btn" onClick={tryLogin}>Войти</button>
+            <a className="btn ghost" href="#top">На сайт</a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="wrap admin">
+      <h1>Редактор</h1>
+      <p className="lead">«Сохранить» — правки сразу на сайте в этом браузере. «Скачать» — файл для замены data.json на сервере.</p>
+
+      <h2>Тарифы</h2>{d.plans.map((p, i) => (<div className="arow" key={p.name}><b>{p.name}</b>
       <label>Цена<input value={p.price} placeholder="от 30 000 ₽" onChange={e => plan(i, "price", e.target.value)} /></label>
       <label>Срок<input value={p.term} placeholder="5–7 дней" onChange={e => plan(i, "term", e.target.value)} /></label>
       <label className="wide">Для кого<input value={p.who} onChange={e => plan(i, "who", e.target.value)} /></label></div>))}
@@ -84,7 +162,10 @@ function Admin({ initial }: { initial: SiteData }) {
       <label>tech (через запятую)<input defaultValue={p.tech.join(", ")} onBlur={e => proj(i, "tech", e.target.value)} /></label>
       <button className="btn ghost sm" onClick={() => setD({ ...d, projects: d.projects.filter((_, j) => j !== i) })}>Удалить</button></div>))}
     <div className="cta"><button className="btn ghost" onClick={() => setD({ ...d, projects: [...d.projects, { title: "", category: "", task: "", solution: "", tech: [], url: "", image: "" }] })}>+ Добавить проект</button>
-      <button className="btn ghost" onClick={() => navigator.clipboard?.writeText(JSON.stringify(d, null, 2))}>Копировать JSON</button><button className="btn" onClick={save}>Скачать data.json</button><a className="btn ghost" href="#top" onClick={() => location.reload()}>На сайт</a></div></main>);
+      <button className="btn" onClick={() => { persist(); alert("Сохранено. Обновите главную — данные уже на сайте."); }}>Сохранить</button>
+      <button className="btn ghost" onClick={download}>Скачать JSON</button>
+      <button className="btn ghost" onClick={() => { clearStored(); location.reload(); }}>Сброс</button>
+      <a className="btn ghost" href="#top" onClick={() => location.reload()}>На сайт</a></div></main>);
 }
 function Scope() {
   const [a, setA] = useState(0);
@@ -154,18 +235,45 @@ function Contact() {
 export default function App() {
   const data = useData();
   const [hash, setHash] = useState(window.location.hash);
-  useEffect(() => { const h = () => setHash(window.location.hash); window.addEventListener("hashchange", h); return () => window.removeEventListener("hashchange", h); }, []);
-  if (hash === "#admin" && data) return <Admin initial={data} />;
+  useEffect(() => {
+    const h = () => setHash(window.location.hash);
+    window.addEventListener("hashchange", h);
+    return () => window.removeEventListener("hashchange", h);
+  }, []);
+  useEffect(() => {
+    const el = document.getElementById("steps-scroller");
+    if (!el) return;
+    let down = false, startX = 0, scroll = 0;
+    const onDown = (e: PointerEvent) => { down = true; startX = e.clientX; scroll = el.scrollLeft; el.setPointerCapture(e.pointerId); };
+    const onMove = (e: PointerEvent) => { if (!down) return; el.scrollLeft = scroll - (e.clientX - startX); };
+    const onUp = () => { down = false; };
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointercancel", onUp);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointercancel", onUp);
+    };
+  }, [hash]);
+  if ((hash === "#admin" || hash === "#edit") && data) return <Admin initial={data} />;
   return (<>
     <Intro /><a className="skip" href="#main">К содержимому</a><Header />
     <main id="main">
       <section id="top" className="hero wrap">
-        <p className="idx">NEO DIGITAL STUDIO</p>
-        <h1>Создаём цифровые продукты, которые <em>работают на бизнес</em></h1>
-        <p className="lead">Сайты, веб-приложения и автоматизация — проектируем, разрабатываем и доводим до результата.</p>
-        <ul className="badges"><li>Дизайн без шаблонов</li><li>Идеально на любом экране</li><li>Прозрачный процесс</li></ul>
+        <div className="mesh" aria-hidden="true" />
+        <div className="glow" aria-hidden="true" />
+        <div className="orb" aria-hidden="true" />
+        <p className="idx">NEO DIGITAL STUDIO · Founded by Neki</p>
+        <h1>Цифровые продукты, которые <em>работают на бизнес</em></h1>
+        <p className="lead">Сайты, веб-приложения, боты и автоматизация — проектируем, разрабатываем и доводим до результата. Один специалист от смысла до запуска.</p>
+        <ul className="badges">{heroBadges.map(b => <li key={b}>{b}</li>)}</ul>
         <div className="cta"><a className="btn" href="#contact">Обсудить проект</a><a className="btn ghost" href="#projects">Смотреть проекты</a></div>
-        <p className="sig">CEO Neki</p><CodeWin /><span className="scroll" aria-hidden="true">scroll ↓</span>
+        <p className="sig"><b>CEO Neki</b> — основатель и разработчик</p>
+        <CodeWin />
+        <span className="scroll" aria-hidden="true">scroll ↓</span>
       </section>
       <section id="problem" className="wrap sec"><Reveal><p className="idx">Проблема</p><h2>Сайт без понятной цели — всего лишь дорогая картинка</h2>
         <p className="lead">Человек решает, остаться ему или уйти, за считаные секунды. Мы делаем продукты, которые быстро показывают пользу и подводят к обращению.</p>
@@ -175,16 +283,25 @@ export default function App() {
       <section id="projects" className="wrap sec"><Reveal><p className="idx">02 / Проекты</p><h2>Проекты</h2>
         {data && data.projects.length === 0 && <p className="note">Здесь появятся реальные работы студии.</p>}
         <div className="grid">{data?.projects.map((p, i) => <ProjectCard key={p.title + i} p={p} i={i} />)}</div></Reveal></section>
-      <section id="approach" className="wrap sec"><Reveal><p className="idx">03 / Подход</p><h2>Продукт для тех, кто ценит своё время</h2>
-        <p className="lead">Вникаем в ваше дело, продумываем структуру и тексты, рисуем интерфейс и собираем быстрый код — смысл, дизайн и разработка в одних руках. За NEO стоит CEO Neki — основатель и разработчик цифровых продуктов.</p>
+      <section id="approach" className="wrap sec"><Reveal><p className="idx">03 / Подход</p><h2>От задачи — к архитектуре и коду</h2>
+        <p className="lead">Разбираем бизнес-процесс, проектируем структуру и сценарии, рисуем интерфейс и собираем быстрый, поддерживаемый код. Смысл, дизайн и разработка в одних руках. За NEO стоит Neki — основатель и разработчик.</p>
         <div className="stats">{stats.map(([n, l], i) => <div key={l} className="stat"><b style={{ color: ringColors[i] }}>{n}</b><span>{l}</span></div>)}</div>
-        <Ring /><div className="flow">{flow.map(([t, d], i) => <div key={t} className="node" style={{ borderTopColor: ringColors[i] }}><span className="idx">{String(i + 1).padStart(2, "0")}</span><h3>{t}</h3><p>{d}</p></div>)}</div>
-        <p className="note">Пример типовой схемы. Конкретная архитектура зависит от задачи.</p>
-        <div className="callout"><div><h3>Вы сейчас внутри примера</h3><p>Анимации, сетки, тарифы и формы на этой странице — то, что можно собрать и для вашего бизнеса.</p></div><a className="btn" href="#pricing">Узнать стоимость</a></div></Reveal></section>
+        <div className="layers">{layers.map(([t, d], i) => <div key={t} className="layer" style={{ borderColor: ringColors[i % ringColors.length] }}><span className="idx">{String(i + 1).padStart(2, "0")}</span><h3>{t}</h3><p>{d}</p></div>)}</div>
+        <div className="arch-grid" aria-label="Принципы разработки">
+          <div><b>01 · АРХИТЕКТУРА</b><span>Сначала структура и сценарии — потом пиксели. Так проще масштабировать.</span></div>
+          <div><b>02 · СКОРОСТЬ</b><span>Лёгкий стек, без лишнего JS. Цель — быстрая первая отрисовка на мобильном.</span></div>
+          <div><b>03 · ПРОЗРАЧНОСТЬ</b><span>Этапы, сроки и объём фиксируем до старта. Правки — по согласованным раундам.</span></div>
+        </div>
+        <p className="note">Схема слоёв — ориентир. Конкретная архитектура всегда под задачу.</p>
+        <div className="callout"><div><h3>Эта страница — живой пример</h3><p>Сетка, анимации, тарифы и форма здесь собраны так же, как мы делаем для клиентов: без лишнего веса и с вниманием к деталям.</p></div><a className="btn" href="#pricing">Узнать стоимость</a></div></Reveal></section>
       <section id="scope" className="wrap sec"><Reveal><p className="idx">04 / Что входит</p><h2>Что входит в работу</h2>
         <Scope /></Reveal></section>
       <section id="process" className="wrap sec"><Reveal><p className="idx">05 / Процесс</p><h2>Понятный путь от первого разговора до запуска</h2>
-        <ol className="steps">{steps.map(([n, t, d]) => <li key={n}><span>{n}</span><h3>{t}</h3><p>{d}</p></li>)}</ol></Reveal></section>
+        <p className="lead">Сроки и этапы фиксируем до старта. На телефоне этапы можно листать горизонтально.</p>
+        <div className="steps-wrap" id="steps-scroller">
+          <ol className="steps">{steps.map(([n, title, d]) => <li key={n}><span>{n}</span><h3>{title}</h3><p>{d}</p></li>)}</ol>
+        </div>
+</Reveal></section>
       <section id="pricing" className="wrap sec"><Reveal><p className="idx">06 / Стоимость</p><h2>Стоимость без скрытых доплат</h2>
         <p className="lead">Сначала обсуждаем задачу, затем согласуем сумму, сроки и этапы оплаты — до начала работ.</p>
         <div className="plans">{data?.plans.map(p => <PlanCard key={p.name} p={p} />)}</div>
